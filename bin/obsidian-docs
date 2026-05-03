@@ -1,0 +1,59 @@
+#!/usr/bin/env node
+import { program } from 'commander';
+import { installCommand } from '../commands/install.js';
+import { updateCommand } from '../commands/update.js';
+import { statusCommand } from '../commands/status.js';
+import { uninstallCommand } from '../commands/uninstall.js';
+import { backfillCommand } from '../commands/backfill.js';
+import { hookInstallCommand, hookUninstallCommand } from '../commands/hook.js';
+
+program
+  .name('obsidian-docs')
+  .description('Living Obsidian docs + Claude Code skill for any repo')
+  .version('1.0.0');
+
+program
+  .command('install')
+  .description('Add obsidian vault + Claude skill to current repo')
+  .option('--no-git', 'skip git commit')
+  .option('--global', 'install skill globally at ~/.claude/skills/')
+  .action(installCommand);
+
+program
+  .command('update')
+  .description('Update SKILL.md to latest version in this repo')
+  .option('--global', 'update the global skill at ~/.claude/skills/')
+  .action(updateCommand);
+
+program
+  .command('status')
+  .description('Check if vault and CLAUDE.md are in sync')
+  .action(statusCommand);
+
+const hook = program.command('hook').description('Manage the PostToolUse nudge hook');
+hook
+  .command('install')
+  .description('Install PostToolUse hook to nudge Claude after Write/Edit')
+  .option('--local', 'write to .claude/settings.local.json (personal, gitignored) instead of settings.json')
+  .action(hookInstallCommand);
+hook
+  .command('uninstall')
+  .description('Remove the PostToolUse nudge hook from settings + delete the script')
+  .action(hookUninstallCommand);
+
+program
+  .command('backfill [path]')
+  .description('Spawn Claude Code to populate docs/ from existing source')
+  .option('-p, --print', 'run claude in print/headless mode (claude -p)')
+  .option('--dry-run', 'print the prompt without spawning claude')
+  .action(backfillCommand);
+
+program
+  .command('uninstall')
+  .description('Remove vault, skill, and CLAUDE.md marker block')
+  .option('-y, --yes', 'skip confirmation prompt')
+  .option('--keep-vault', 'leave docs/ in place (only remove skill + CLAUDE.md section)')
+  .option('--global', 'also remove the global skill at ~/.claude/skills/')
+  .action(uninstallCommand);
+
+program.parse();

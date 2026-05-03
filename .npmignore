@@ -1,0 +1,8 @@
+test/
+.github/
+.git/
+.DS_Store
+node_modules/
+*.log
+.vscode/
+.idea/
