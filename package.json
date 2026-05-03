@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Add living Obsidian docs + Claude Code skill to any repo",
   "bin": {
-    "obsidian-docs": "./bin/obsidian-docs"
+    "obsidian-docs": "bin/obsidian-docs"
   },
   "type": "module",
   "files": [
