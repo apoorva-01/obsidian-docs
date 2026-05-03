@@ -1,39 +1,68 @@
 # obsidian-docs
 
-> One command. Drops a living [Obsidian](https://obsidian.md) documentation vault and a [Claude Code](https://claude.com/claude-code) skill into any repo — so Claude maintains your docs as you code.
+### AI memory for your codebase.
+
+> One command gives [Claude Code](https://claude.com/claude-code) a persistent, structured memory of your repo — the *why* behind every module, every architectural decision, every gotcha — and keeps it fresh as you code.
 
 [![npm version](https://img.shields.io/npm/v/obsidian-docs.svg)](https://www.npmjs.com/package/obsidian-docs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-21%20passing-brightgreen.svg)](test/cli.test.js)
+[![Tests](https://img.shields.io/badge/tests-23%20passing-brightgreen.svg)](test/cli.test.js)
 [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](https://nodejs.org)
 
 ```bash
 npx obsidian-docs install
 ```
 
-That's it. Your repo now has:
-- An Obsidian vault at `docs/` (modules, ADRs, runbooks, architecture)
-- A Claude Code skill at `.claude/skills/obsidian-docs/SKILL.md`
-- A documentation policy injected into `CLAUDE.md`
+> [!NOTE]
+> **In a real codebase:** `<X>×` faster onboarding · `<Y>%` fewer "where is X defined?" lookups by Claude · `<Z>` of architectural decisions captured that would otherwise have been lost.
+> *(Numbers from <project> after Z weeks. Run it on yours and tell me — open an [issue](https://github.com/apoorva-01/obsidian-docs/issues) with your before/after.)*
 
-From this point on, when you ask Claude to add a feature or make a decision, it updates the vault for you — using strict templates, with `[[wikilinks]]` between notes, and an always-current `_INDEX.md`.
+---
+
+## Try it without touching your repo
+
+```bash
+npx obsidian-docs demo
+```
+
+Spins up a fake project in a temp directory, fully populated with sample modules, ADRs, and a runbook. Open the resulting `docs/` folder in [Obsidian](https://obsidian.md) and switch to graph view — that's what a healthy `obsidian-docs`-managed repo looks like.
+
+---
+
+## What it does
+
+Two parties, one source of truth:
+
+| Audience | What they see | How they use it |
+|---|---|---|
+| 👩‍💻 **Humans** | An Obsidian vault at `docs/` — browsable graph, wikilinks between notes, search | Onboarding, design rationale, "why did we do it this way?" |
+| 🤖 **Claude Code** | A skill at `.claude/skills/obsidian-docs/SKILL.md` + a section in `CLAUDE.md` | Claude reads the vault for context, writes new notes when you change code, updates the index, never duplicates |
+
+Run `install` once and your repo gets:
+
+- 📁 An **Obsidian vault** at `docs/` (modules, ADRs, runbooks, architecture)
+- 🎯 A **Claude Code skill** that enforces strict templates and `[[wikilinks]]`
+- 📝 A **documentation policy** injected into `CLAUDE.md`
+- 🪝 An optional **PostToolUse hook** that nudges Claude after every Write/Edit
+
+From then on, when you ask Claude *"add a NotificationService that calls SendGrid"* — Claude writes the code AND creates the module note, links its dependencies, and updates `_INDEX.md`. In the same commit.
 
 ---
 
 ## Why?
 
-Code answers **what**. Good docs answer **why**.
+Code answers **what**. Memory answers **why**.
 
-Most repos drift into one of two failure modes:
+Today, every Claude session starts cold. It re-reads files, re-derives architecture, re-discovers gotchas you've explained ten times. That's wasted context window, wasted latency, wasted attention.
+
+Most repos try to solve this two ways, and both fail:
 
 | Failure | What it looks like |
 |---|---|
-| **No docs** | New devs read code blind. Decisions are lost. Onboarding takes weeks. |
-| **Stale docs** | A `README.md` graveyard. A wiki nobody updates. AI assistants get told the wrong thing about your system. |
+| **No docs** | New devs and AI agents both read code blind. Decisions are lost. Onboarding takes weeks. Claude makes the same mistake twice. |
+| **Stale docs** | A `README.md` graveyard. A Notion page nobody updates. AI agents get told the wrong thing about your system. |
 
-`obsidian-docs` solves both: structured templates make docs cheap to write, and a Claude Code skill + optional hook makes Claude maintain them in the same commit as the code. You browse them as a graph in Obsidian; AI assistants read them as structured context.
-
-It's a *living documentation layer* — not a static wiki.
+`obsidian-docs` is the third path: **structured templates so docs are cheap to write, plus a skill + hook so Claude maintains them in the same commit as the code.** Humans browse it as a graph; AI reads it as structured context. It doesn't drift because it's not a side project — it's part of how Claude works in your repo.
 
 ---
 
@@ -78,6 +107,7 @@ Open `docs/` in Obsidian to browse it as a linked graph.
 
 | Command | What it does |
 |---|---|
+| `obsidian-docs demo` | Spin up a fully-populated demo project so you can see it before installing |
 | `obsidian-docs install` | Scaffold the vault, install the skill, patch `CLAUDE.md`, commit. Safe on existing repos. |
 | `obsidian-docs status` | Health check — are all the pieces in place? |
 | `obsidian-docs update` | Refresh `SKILL.md` to the latest version |

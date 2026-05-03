@@ -6,6 +6,7 @@ import { statusCommand } from '../commands/status.js';
 import { uninstallCommand } from '../commands/uninstall.js';
 import { backfillCommand } from '../commands/backfill.js';
 import { hookInstallCommand, hookUninstallCommand } from '../commands/hook.js';
+import { demoCommand } from '../commands/demo.js';
 
 program
   .name('obsidian-docs')
@@ -29,6 +30,13 @@ program
   .command('status')
   .description('Check if vault and CLAUDE.md are in sync')
   .action(statusCommand);
+
+program
+  .command('demo')
+  .description('Try obsidian-docs in a temp project — no commitment to your real repo')
+  .option('--dir <path>', 'use a specific directory instead of a temp dir')
+  .option('--force', 'overwrite the directory if it already exists')
+  .action(demoCommand);
 
 const hook = program.command('hook').description('Manage the PostToolUse nudge hook');
 hook

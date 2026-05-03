@@ -290,6 +290,45 @@ test('backfill: refuses if not installed', () => {
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('demo: scaffolds a fake project + populated vault', () => {
+  const dir = path.join(mkdtempSync(path.join(tmpdir(), 'odt-demo-')), 'demo');
+  try {
+    const { stdout, status } = run(process.cwd(), ['demo', '--dir', dir]);
+    assert.equal(status, 0);
+    assert.match(stdout, /Demo ready/);
+    // Fake project files
+    assert.ok(existsSync(path.join(dir, 'package.json')));
+    assert.ok(existsSync(path.join(dir, 'src/auth/service.ts')));
+    // Installed
+    assert.ok(existsSync(path.join(dir, 'CLAUDE.md')));
+    assert.ok(existsSync(path.join(dir, '.claude/skills/obsidian-docs/SKILL.md')));
+    // Populated vault
+    assert.ok(existsSync(path.join(dir, 'docs/modules/AuthService.md')));
+    assert.ok(existsSync(path.join(dir, 'docs/modules/OrderService.md')));
+    assert.ok(existsSync(path.join(dir, 'docs/modules/PaymentService.md')));
+    assert.ok(existsSync(path.join(dir, 'docs/modules/UserRepository.md')));
+    assert.ok(existsSync(path.join(dir, 'docs/decisions/ADR-001-jwt-over-sessions.md')));
+    assert.ok(existsSync(path.join(dir, 'docs/decisions/ADR-002-synchronous-payment.md')));
+    assert.ok(existsSync(path.join(dir, 'docs/runbooks/Deploy.md')));
+    // Index references everything
+    const idx = read(path.join(dir, 'docs/_INDEX.md'));
+    assert.match(idx, /\[\[AuthService\]\]/);
+    assert.match(idx, /\[\[ADR-001/);
+    assert.match(idx, /\[\[Deploy\]\]/);
+  } finally { rmSync(path.dirname(dir), { recursive: true, force: true }); }
+});
+
+test('demo: refuses to overwrite non-empty dir without --force', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'odt-demo-'));
+  writeFileSync(path.join(dir, 'sentinel'), 'x');
+  try {
+    const { stdout, status } = run(process.cwd(), ['demo', '--dir', dir]);
+    assert.notEqual(status, 0);
+    assert.match(stdout, /already exists/);
+    assert.ok(existsSync(path.join(dir, 'sentinel')));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('update: refreshes SKILL.md', () => {
   const dir = makeProject();
   try {
