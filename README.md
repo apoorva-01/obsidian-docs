@@ -6,7 +6,7 @@
 
 [![npm version](https://img.shields.io/npm/v/obsidian-docs.svg)](https://www.npmjs.com/package/obsidian-docs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-30%20passing-brightgreen.svg)](test/cli.test.js)
+[![Tests](https://img.shields.io/badge/tests-31%20passing-brightgreen.svg)](test/cli.test.js)
 [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](https://nodejs.org)
 
 ```bash

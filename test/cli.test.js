@@ -371,6 +371,41 @@ test('rename survival: hook script reads vault path from config', () => {
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('legacy install: status detects + heals a renamed pre-1.2.0 vault', () => {
+  // Simulate: user installed obsidian-docs v1.1.0 (no marker, no config),
+  // populated the vault, renamed docs/ → MyWiki/ in Obsidian, then upgraded.
+  const dir = makeProject();
+  try {
+    // Build a "legacy" vault at MyWiki/ — the canonical _INDEX.md preamble
+    // + modules/ subfolder, but NO marker file and NO config.
+    mkdirSync(path.join(dir, 'MyWiki/modules'), { recursive: true });
+    writeFileSync(
+      path.join(dir, 'MyWiki/_INDEX.md'),
+      '# Project Docs Index\n\n_Maintained by Claude Code via obsidian-docs skill._\n\n## Modules\n- [[Foo]]\n'
+    );
+    writeFileSync(path.join(dir, 'MyWiki/modules/Foo.md'), '# Foo\n\nA module.\n');
+    // Give it a CLAUDE.md with the section pointing at the OLD docs/ path
+    writeFileSync(
+      path.join(dir, 'CLAUDE.md'),
+      '# Project\n\n<!-- obsidian-docs:start -->\n## Documentation Policy\n\nVault location: `/docs`\n- `docs/modules/`\n<!-- obsidian-docs:end -->\n'
+    );
+    // Skill must exist for status to be happy
+    mkdirSync(path.join(dir, '.claude/skills/obsidian-docs'), { recursive: true });
+    writeFileSync(path.join(dir, '.claude/skills/obsidian-docs/SKILL.md'), '# Skill');
+
+    const { stdout, status } = run(dir, ['status']);
+    assert.equal(status, 0);
+    // Auto-detected MyWiki via _INDEX.md content
+    assert.match(stdout, /MyWiki/);
+    // Wrote the marker
+    assert.ok(existsSync(path.join(dir, 'MyWiki/.obsidian-docs-vault')));
+    // Wrote the config
+    assert.equal(JSON.parse(read(path.join(dir, '.obsidian-docs.json'))).vaultPath, 'MyWiki');
+    // Healed CLAUDE.md to reference MyWiki/
+    assert.match(read(path.join(dir, 'CLAUDE.md')), /MyWiki\/modules/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('relocate: explicit move from docs/ to wiki/', () => {
   const dir = makeProject();
   try {

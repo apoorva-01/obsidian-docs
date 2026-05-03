@@ -1,6 +1,6 @@
 {
   "name": "obsidian-docs",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Add living Obsidian docs + Claude Code skill to any repo",
   "bin": {
     "obsidian-docs": "bin/obsidian-docs"
