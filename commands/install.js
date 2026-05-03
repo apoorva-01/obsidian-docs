@@ -11,6 +11,13 @@ import {
   appendObsidianSection,
   generateObsidianSection
 } from '../lib/claude-md.js';
+import {
+  resolveVault,
+  writeVaultMarker,
+  writeConfig,
+  readConfig,
+  DEFAULT_VAULT_PATH
+} from '../lib/vault.js';
 
 const { prompt } = enquirer;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -27,13 +34,24 @@ export async function installCommand(options) {
   const stack = [project.language, project.framework, project.database].filter(Boolean).join(' · ');
   spinner.succeed(`Detected: ${chalk.cyan(project.name)} · ${chalk.yellow(stack || 'unknown stack')}`);
 
+  // Resolve existing vault (handles renamed folders), or fall back to --vault-path / default
+  const existing = resolveVault(cwd);
+  let vaultPath = options.vaultPath
+    || existing.vaultPath
+    || readConfig(cwd)?.vaultPath
+    || DEFAULT_VAULT_PATH;
+
+  if (existing.relocated) {
+    spinner.info(`Detected vault renamed: ${chalk.cyan(existing.relocated.from)} → ${chalk.cyan(existing.relocated.to)}`);
+  }
+
   let confirmed = true;
   if (process.stdin.isTTY) {
     try {
       const res = await prompt({
         type: 'confirm',
         name: 'confirmed',
-        message: `Install obsidian-docs into ${project.name}?`,
+        message: `Install obsidian-docs into ${project.name} (vault: ./${vaultPath}/)?`,
         initial: true
       });
       confirmed = res.confirmed;
@@ -43,9 +61,13 @@ export async function installCommand(options) {
   }
   if (!confirmed) { console.log(chalk.gray('  Aborted.')); process.exit(0); }
 
-  spinner.start('Creating /docs vault...');
-  createVault(cwd);
-  spinner.succeed('Created /docs vault structure');
+  spinner.start(`Creating ${vaultPath}/ vault...`);
+  createVault(cwd, vaultPath);
+  spinner.succeed(`Created ${chalk.cyan(vaultPath + '/')} vault structure`);
+
+  spinner.start('Writing config...');
+  writeConfig(cwd, { vaultPath, version: 1 });
+  spinner.succeed(`Wrote ${chalk.cyan('.obsidian-docs.json')} (vault path is now resilient to rename)`);
 
   spinner.start('Installing SKILL.md...');
   const skillPath = installSkill(cwd, options.global);
@@ -60,14 +82,14 @@ export async function installCommand(options) {
   const refPath = options.global
     ? skillPath.replace(process.env.HOME, '~')
     : path.relative(cwd, skillPath);
-  const section = generateObsidianSection(project, refPath);
+  const section = generateObsidianSection(project, refPath, vaultPath);
   appendObsidianSection(cwd, section);
   spinner.succeed('Updated CLAUDE.md');
 
   if (options.git !== false) {
     spinner.start('Committing to git...');
     try {
-      const toAdd = ['docs/', 'CLAUDE.md'];
+      const toAdd = [`${vaultPath}/`, 'CLAUDE.md', '.obsidian-docs.json'];
       if (!options.global) toAdd.push('.claude/');
       execSync(`git add ${toAdd.join(' ')}`, { cwd, stdio: 'ignore' });
       execSync(
@@ -84,26 +106,27 @@ export async function installCommand(options) {
 ${chalk.green('  ✓ Done!')}
 
   ${chalk.bold('Next steps:')}
-  1. Open ${chalk.cyan('docs/')} as an Obsidian vault
+  1. Open ${chalk.cyan(vaultPath + '/')} as an Obsidian vault
   2. Ask Claude Code to document a module:
      ${chalk.gray('> document the AuthService using the obsidian-docs skill')}
   3. Make a decision? Claude will write the ADR automatically.
 
+  ${chalk.gray('Renaming the vault folder is fine — every command auto-detects the new path.')}
   ${chalk.gray('Run `obsidian-docs status` to check vault health anytime.')}
 `);
 }
 
-function createVault(cwd) {
+function createVault(cwd, vaultPath) {
   const dirs = [
-    'docs/modules',
-    'docs/decisions',
-    'docs/runbooks',
-    'docs/architecture',
-    'docs/.obsidian'
+    `${vaultPath}/modules`,
+    `${vaultPath}/decisions`,
+    `${vaultPath}/runbooks`,
+    `${vaultPath}/architecture`,
+    `${vaultPath}/.obsidian`
   ];
   dirs.forEach(d => fs.mkdirSync(path.join(cwd, d), { recursive: true }));
 
-  const indexPath = path.join(cwd, 'docs/_INDEX.md');
+  const indexPath = path.join(cwd, vaultPath, '_INDEX.md');
   if (!fs.existsSync(indexPath)) {
     fs.writeFileSync(indexPath, `# Project Docs Index
 
@@ -123,7 +146,7 @@ _Maintained by Claude Code via obsidian-docs skill._
 `);
   }
 
-  const appJsonPath = path.join(cwd, 'docs/.obsidian/app.json');
+  const appJsonPath = path.join(cwd, vaultPath, '.obsidian/app.json');
   if (!fs.existsSync(appJsonPath)) {
     fs.writeFileSync(appJsonPath, JSON.stringify({
       useMarkdownLinks: false,
@@ -133,9 +156,12 @@ _Maintained by Claude Code via obsidian-docs skill._
   }
 
   fs.writeFileSync(
-    path.join(cwd, 'docs/.obsidian/.gitignore'),
+    path.join(cwd, vaultPath, '.obsidian/.gitignore'),
     'workspace.json\nworkspace-mobile.json\n'
   );
+
+  // Drop the rename-survivor marker
+  writeVaultMarker(path.join(cwd, vaultPath));
 }
 
 function installSkill(cwd, global) {

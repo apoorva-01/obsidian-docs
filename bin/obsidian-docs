@@ -7,6 +7,7 @@ import { uninstallCommand } from '../commands/uninstall.js';
 import { backfillCommand } from '../commands/backfill.js';
 import { hookInstallCommand, hookUninstallCommand } from '../commands/hook.js';
 import { demoCommand } from '../commands/demo.js';
+import { relocateCommand } from '../commands/relocate.js';
 
 program
   .name('obsidian-docs')
@@ -18,7 +19,13 @@ program
   .description('Add obsidian vault + Claude skill to current repo')
   .option('--no-git', 'skip git commit')
   .option('--global', 'install skill globally at ~/.claude/skills/')
+  .option('--vault-path <path>', 'use a vault folder name other than "docs"')
   .action(installCommand);
+
+program
+  .command('relocate [new-path]')
+  .description('Update references after renaming the vault folder, or pass a new path to move it')
+  .action(relocateCommand);
 
 program
   .command('update')

@@ -4,6 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync, execFileSync } from 'node:child_process';
+import fs from 'node:fs';
 import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -287,6 +288,110 @@ test('backfill: refuses if not installed', () => {
     const { stdout, status } = run(dir, ['backfill', '--dry-run']);
     assert.notEqual(status, 0);
     assert.match(stdout, /No SKILL\.md found/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── Vault rename / relocate tests ───────────────────────────────
+
+test('install: writes .obsidian-docs.json + vault marker', () => {
+  const dir = makeProject();
+  try {
+    run(dir, ['install', '--no-git'], { input: '\n' });
+    const cfg = JSON.parse(read(path.join(dir, '.obsidian-docs.json')));
+    assert.equal(cfg.vaultPath, 'docs');
+    assert.ok(existsSync(path.join(dir, 'docs/.obsidian-docs-vault')));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('install --vault-path: uses a custom vault folder name', () => {
+  const dir = makeProject();
+  try {
+    run(dir, ['install', '--no-git', '--vault-path', 'wiki'], { input: '\n' });
+    assert.ok(existsSync(path.join(dir, 'wiki/_INDEX.md')));
+    assert.ok(existsSync(path.join(dir, 'wiki/.obsidian-docs-vault')));
+    assert.equal(JSON.parse(read(path.join(dir, '.obsidian-docs.json'))).vaultPath, 'wiki');
+    // CLAUDE.md references the new path, not docs/
+    assert.match(read(path.join(dir, 'CLAUDE.md')), /wiki\/modules/);
+    assert.doesNotMatch(read(path.join(dir, 'CLAUDE.md')), /docs\/modules/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('rename survival: status auto-detects renamed vault', () => {
+  const dir = makeProject();
+  try {
+    run(dir, ['install', '--no-git'], { input: '\n' });
+    // Simulate Obsidian renaming the vault folder
+    fs.renameSync(path.join(dir, 'docs'), path.join(dir, 'SyncForm'));
+    const { stdout, status } = run(dir, ['status']);
+    assert.equal(status, 0);
+    assert.match(stdout, /relocated|SyncForm/);
+    assert.match(stdout, /Everything looks good/);
+    // Config was updated
+    assert.equal(JSON.parse(read(path.join(dir, '.obsidian-docs.json'))).vaultPath, 'SyncForm');
+    // CLAUDE.md was updated to reference SyncForm/
+    assert.match(read(path.join(dir, 'CLAUDE.md')), /SyncForm\/modules/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('rename survival: backfill --dry-run targets the new vault path', () => {
+  const dir = makeProject();
+  try {
+    run(dir, ['install', '--no-git'], { input: '\n' });
+    fs.renameSync(path.join(dir, 'docs'), path.join(dir, 'notes'));
+    mkdirSync(path.join(dir, 'src'));
+    const { stdout, status } = run(dir, ['backfill', '--dry-run']);
+    assert.equal(status, 0);
+    assert.match(stdout, /notes\//);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('rename survival: hook script reads vault path from config', () => {
+  const dir = makeProject();
+  try {
+    run(dir, ['install', '--no-git'], { input: '\n' });
+    run(dir, ['hook', 'install']);
+    fs.renameSync(path.join(dir, 'docs'), path.join(dir, 'wiki'));
+    // Update config so the hook picks up the new path (simulates running `status` first)
+    run(dir, ['status']);
+    // Edit inside the renamed vault → should be skipped (no output)
+    const out1 = execFileSync('bash', [path.join(dir, '.claude/hooks/obsidian-docs-nudge.sh')], {
+      input: JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: 'wiki/modules/Foo.md' }}),
+      encoding: 'utf8',
+      cwd: dir
+    });
+    assert.equal(out1.trim(), '');
+    // Edit in src/ → reminder should reference the new vault path
+    const out2 = execFileSync('bash', [path.join(dir, '.claude/hooks/obsidian-docs-nudge.sh')], {
+      input: JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: 'src/foo.ts' }}),
+      encoding: 'utf8',
+      cwd: dir
+    });
+    const json = JSON.parse(out2);
+    assert.match(json.hookSpecificOutput.additionalContext, /wiki\/modules/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('relocate: explicit move from docs/ to wiki/', () => {
+  const dir = makeProject();
+  try {
+    run(dir, ['install', '--no-git'], { input: '\n' });
+    const { status } = run(dir, ['relocate', 'wiki']);
+    assert.equal(status, 0);
+    assert.ok(!existsSync(path.join(dir, 'docs')));
+    assert.ok(existsSync(path.join(dir, 'wiki/_INDEX.md')));
+    assert.equal(JSON.parse(read(path.join(dir, '.obsidian-docs.json'))).vaultPath, 'wiki');
+    assert.match(read(path.join(dir, 'CLAUDE.md')), /wiki\/modules/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('uninstall: cleans up .obsidian-docs.json + renamed vault', () => {
+  const dir = makeProject();
+  try {
+    run(dir, ['install', '--no-git'], { input: '\n' });
+    fs.renameSync(path.join(dir, 'docs'), path.join(dir, 'SyncForm'));
+    run(dir, ['uninstall', '--yes']);
+    assert.ok(!existsSync(path.join(dir, 'SyncForm')));
+    assert.ok(!existsSync(path.join(dir, '.obsidian-docs.json')));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

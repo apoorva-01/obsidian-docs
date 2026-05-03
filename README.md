@@ -6,7 +6,7 @@
 
 [![npm version](https://img.shields.io/npm/v/obsidian-docs.svg)](https://www.npmjs.com/package/obsidian-docs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-23%20passing-brightgreen.svg)](test/cli.test.js)
+[![Tests](https://img.shields.io/badge/tests-30%20passing-brightgreen.svg)](test/cli.test.js)
 [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](https://nodejs.org)
 
 ```bash
@@ -108,7 +108,8 @@ Open `docs/` in Obsidian to browse it as a linked graph.
 | Command | What it does |
 |---|---|
 | `obsidian-docs demo` | Spin up a fully-populated demo project so you can see it before installing |
-| `obsidian-docs install` | Scaffold the vault, install the skill, patch `CLAUDE.md`, commit. Safe on existing repos. |
+| `obsidian-docs install` | Scaffold the vault, install the skill, patch `CLAUDE.md`, commit. Safe on existing repos. Pass `--vault-path notes` to use a folder name other than `docs/`. |
+| `obsidian-docs relocate <path>` | Move the vault to a new folder OR re-detect after you renamed it in Obsidian. |
 | `obsidian-docs status` | Health check — are all the pieces in place? |
 | `obsidian-docs update` | Refresh `SKILL.md` to the latest version |
 | `obsidian-docs hook install` | Install a PostToolUse hook that nudges Claude after Write/Edit |
@@ -157,6 +158,27 @@ After install, ask Claude to backfill what's already there:
 ```bash
 obsidian-docs backfill            # auto-targets src/ (or lib/, app/, packages/)
 obsidian-docs backfill src/auth   # or batch by area for review
+```
+
+---
+
+## Rename the vault freely
+
+Obsidian's "Rename vault" silently renames the folder on disk. That's fine — every `obsidian-docs` command auto-detects the new location via a marker file (`.obsidian-docs-vault`) and a config (`.obsidian-docs.json`) at the repo root.
+
+```bash
+# You renamed docs/ → SyncForm/ inside Obsidian. Now:
+obsidian-docs status
+# ↻ Vault relocated: docs → SyncForm — updating references...
+# ✓ Updated config + CLAUDE.md to use SyncForm/
+```
+
+The CLI updates the config, rewrites the CLAUDE.md path references, and the PostToolUse hook follows. Zero manual intervention. You can also pre-empt it:
+
+```bash
+obsidian-docs install --vault-path notes      # use notes/ instead of docs/ from the start
+obsidian-docs relocate wiki                   # move docs/ → wiki/ explicitly
+obsidian-docs relocate                         # just re-scan and confirm location
 ```
 
 ---

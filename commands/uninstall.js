@@ -3,6 +3,8 @@ import path from 'path';
 import chalk from 'chalk';
 import ora from 'ora';
 import enquirer from 'enquirer';
+import { healVault } from '../lib/heal.js';
+import { readConfig } from '../lib/vault.js';
 
 const { prompt } = enquirer;
 const MARKER_START = '<!-- obsidian-docs:start -->';
@@ -14,13 +16,17 @@ export async function uninstallCommand(options) {
 
   console.log(chalk.bold('\n  obsidian-docs uninstall\n'));
 
+  const vaultPath = healVault(cwd, { silent: true }) || readConfig(cwd)?.vaultPath || 'docs';
+
   const claudeMd = path.join(cwd, 'CLAUDE.md');
   const localSkillDir = path.join(cwd, '.claude/skills/obsidian-docs');
   const globalSkillDir = path.join(process.env.HOME, '.claude/skills/obsidian-docs');
-  const vaultDir = path.join(cwd, 'docs');
+  const vaultDir = path.join(cwd, vaultPath);
+  const configFile = path.join(cwd, '.obsidian-docs.json');
 
   const targets = {
     claudeSection: fs.existsSync(claudeMd) && fs.readFileSync(claudeMd, 'utf8').includes(MARKER_START),
+    config: fs.existsSync(configFile),
     localSkill: fs.existsSync(localSkillDir),
     globalSkill: options.global && fs.existsSync(globalSkillDir),
     vault: !options.keepVault && fs.existsSync(vaultDir)
@@ -28,9 +34,10 @@ export async function uninstallCommand(options) {
 
   console.log('  Will remove:');
   if (targets.claudeSection) console.log(`    ${chalk.yellow('•')} obsidian-docs section in ${chalk.cyan('CLAUDE.md')}`);
+  if (targets.config)        console.log(`    ${chalk.yellow('•')} ${chalk.cyan('.obsidian-docs.json')}`);
   if (targets.localSkill)    console.log(`    ${chalk.yellow('•')} ${chalk.cyan('.claude/skills/obsidian-docs/')}`);
   if (targets.globalSkill)   console.log(`    ${chalk.yellow('•')} ${chalk.cyan(globalSkillDir)}`);
-  if (targets.vault)         console.log(`    ${chalk.red('•')} ${chalk.cyan('docs/')} ${chalk.red.bold('(YOUR VAULT — destructive)')}`);
+  if (targets.vault)         console.log(`    ${chalk.red('•')} ${chalk.cyan(vaultPath + '/')} ${chalk.red.bold('(YOUR VAULT — destructive)')}`);
 
   if (!Object.values(targets).some(Boolean)) {
     console.log(chalk.gray('  Nothing to remove.\n'));
@@ -94,9 +101,15 @@ export async function uninstallCommand(options) {
   }
 
   if (targets.vault) {
-    spinner.start('Removing docs/ vault...');
+    spinner.start(`Removing ${vaultPath}/ vault...`);
     fs.rmSync(vaultDir, { recursive: true, force: true });
-    spinner.succeed('Removed docs/');
+    spinner.succeed(`Removed ${vaultPath}/`);
+  }
+
+  if (targets.config) {
+    spinner.start('Removing .obsidian-docs.json...');
+    fs.unlinkSync(configFile);
+    spinner.succeed('Removed .obsidian-docs.json');
   }
 
   console.log(`\n${chalk.green('  ✓ Uninstalled.')}\n`);

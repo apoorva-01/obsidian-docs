@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { spawnSync, execSync } from 'child_process';
 import chalk from 'chalk';
+import { healVault } from '../lib/heal.js';
 
 export async function backfillCommand(targetArg, options) {
   const cwd = process.cwd();
@@ -23,8 +24,9 @@ export async function backfillCommand(targetArg, options) {
     process.exit(1);
   }
 
-  if (!fs.existsSync(path.join(cwd, 'docs'))) {
-    console.log(chalk.red('  ✗ No docs/ vault found.'));
+  const vaultPath = healVault(cwd);
+  if (!vaultPath) {
+    console.log(chalk.red('  ✗ No vault found.'));
     console.log(chalk.gray('    Run `obsidian-docs install` first.\n'));
     process.exit(1);
   }
@@ -32,12 +34,13 @@ export async function backfillCommand(targetArg, options) {
   // ── 2. Pick target scope ─────────────────────────────────────
   const target = pickTarget(cwd, targetArg);
   console.log(`  ${chalk.gray('Target:')}  ${chalk.cyan(target)}`);
+  console.log(`  ${chalk.gray('Vault:')}   ${chalk.cyan(vaultPath + '/')}`);
   console.log(`  ${chalk.gray('Skill:')}   ${chalk.cyan(skillPath)}`);
   console.log(`  ${chalk.gray('Mode:')}    ${chalk.cyan(options.print ? 'print (headless)' : 'interactive')}`);
   console.log();
 
   // ── 3. Build prompt ──────────────────────────────────────────
-  const prompt = buildPrompt({ skillPath, target });
+  const prompt = buildPrompt({ skillPath, target, vaultPath });
 
   if (options.dryRun) {
     console.log(chalk.bold('  --dry-run: prompt that would be sent to claude:\n'));
@@ -87,8 +90,8 @@ function hasClaudeCli() {
   }
 }
 
-function buildPrompt({ skillPath, target }) {
-  return `Backfill the Obsidian docs vault at \`docs/\` from the existing codebase.
+function buildPrompt({ skillPath, target, vaultPath }) {
+  return `Backfill the Obsidian docs vault at \`${vaultPath}/\` from the existing codebase.
 
 First, read \`${skillPath}\` so you follow the templates and rules exactly.
 
@@ -97,7 +100,7 @@ Scope: ${target === '.' ? 'the entire repository' : `\`${target}\``}
 Process:
 1. Survey the target to identify the major modules / services / subsystems.
    Skip trivial utilities, generated files, vendored code, tests, and config.
-2. For each significant module, create \`docs/modules/<ModuleName>.md\` using
+2. For each significant module, create \`${vaultPath}/modules/<ModuleName>.md\` using
    the module template from the skill. Use PascalCase filenames matching the
    real module/class/service name.
 3. Fill in:
@@ -107,7 +110,7 @@ Process:
    - Consumed by (modules that import/call it — link with [[wikilinks]])
    - Known gotchas (only if you spot something non-obvious in the code; otherwise "None yet")
    - Last reviewed (today's date)
-4. After creating each note, immediately update \`docs/_INDEX.md\` to list it.
+4. After creating each note, immediately update \`${vaultPath}/_INDEX.md\` to list it.
 5. If a module note already exists, do NOT overwrite — patch missing sections only.
 6. Never leave broken \`[[wikilinks]]\` — only link to notes that exist or that
    you are creating in the same pass.
