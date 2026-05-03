@@ -27,11 +27,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/CHANGE-ME/obsidian-docs.git"
+    "url": "git+https://github.com/apoorva-01/obsidian-docs.git"
   },
-  "homepage": "https://github.com/CHANGE-ME/obsidian-docs#readme",
+  "homepage": "https://github.com/apoorva-01/obsidian-docs#readme",
   "bugs": {
-    "url": "https://github.com/CHANGE-ME/obsidian-docs/issues"
+    "url": "https://github.com/apoorva-01/obsidian-docs/issues"
   },
   "dependencies": {
     "chalk": "^5.3.0",
