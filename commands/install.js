@@ -7,10 +7,15 @@ import enquirer from 'enquirer';
 import { fileURLToPath } from 'url';
 import { detectProject } from '../lib/detect.js';
 import {
-  hasObsidianSection,
-  appendObsidianSection,
-  generateObsidianSection
+  hasObsidianSection as hasClaudeMdSection,
+  appendObsidianSection as appendClaudeMdSection,
+  generateObsidianSection as generateClaudeMdSection
 } from '../lib/claude-md.js';
+import {
+  hasObsidianSection as hasAgentsMdSection,
+  appendObsidianSection as appendAgentsMdSection,
+  generateObsidianSection as generateAgentsMdSection
+} from '../lib/agents-md.js';
 import {
   resolveVault,
   writeVaultMarker,
@@ -74,22 +79,34 @@ export async function installCommand(options) {
   const displaySkillPath = options.global ? skillPath : path.relative(cwd, skillPath);
   spinner.succeed(`Installed skill at ${chalk.cyan(displaySkillPath)}`);
 
-  spinner.start('Updating CLAUDE.md...');
-  if (hasObsidianSection(cwd)) {
-    spinner.warn('CLAUDE.md already had obsidian-docs section — replaced it');
-    spinner.start('Updating CLAUDE.md...');
-  }
   const refPath = options.global
     ? skillPath.replace(process.env.HOME, '~')
     : path.relative(cwd, skillPath);
-  const section = generateObsidianSection(project, refPath, vaultPath);
-  appendObsidianSection(cwd, section);
+
+  // Update CLAUDE.md
+  spinner.start('Updating CLAUDE.md...');
+  if (hasClaudeMdSection(cwd)) {
+    spinner.warn('CLAUDE.md already had obsidian-docs section — replaced it');
+    spinner.start('Updating CLAUDE.md...');
+  }
+  const claudeSection = generateClaudeMdSection(project, refPath, vaultPath);
+  appendClaudeMdSection(cwd, claudeSection);
   spinner.succeed('Updated CLAUDE.md');
+
+  // Update AGENTS.md (for OpenCode/Codex support)
+  spinner.start('Updating AGENTS.md...');
+  if (hasAgentsMdSection(cwd)) {
+    spinner.warn('AGENTS.md already had obsidian-docs section — replaced it');
+    spinner.start('Updating AGENTS.md...');
+  }
+  const agentsSection = generateAgentsMdSection(project, refPath, vaultPath);
+  appendAgentsMdSection(cwd, agentsSection);
+  spinner.succeed('Updated AGENTS.md');
 
   if (options.git !== false) {
     spinner.start('Committing to git...');
     try {
-      const toAdd = [`${vaultPath}/`, 'CLAUDE.md', '.obsidian-docs.json'];
+      const toAdd = [`${vaultPath}/`, 'CLAUDE.md', 'AGENTS.md', '.obsidian-docs.json'];
       if (!options.global) toAdd.push('.claude/');
       execSync(`git add ${toAdd.join(' ')}`, { cwd, stdio: 'ignore' });
       execSync(

@@ -107,6 +107,48 @@ test('claude-md: re-appending replaces section, not duplicates', async () => {
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+// ── agents-md tests ─────────────────────────────────────────────
+
+test('agents-md: appendObsidianSection creates new file', async () => {
+  const { appendObsidianSection, hasObsidianSection } = await import('../lib/agents-md.js');
+  const dir = mkdtempSync(path.join(tmpdir(), 'odt-agents-'));
+  try {
+    appendObsidianSection(dir, '## Section\nbody');
+    assert.equal(hasObsidianSection(dir), true);
+    const content = read(path.join(dir, 'AGENTS.md'));
+    assert.match(content, /<!-- obsidian-docs:start -->/);
+    assert.match(content, /<!-- obsidian-docs:end -->/);
+    assert.match(content, /## Section\nbody/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('agents-md: append preserves existing content', async () => {
+  const { appendObsidianSection } = await import('../lib/agents-md.js');
+  const dir = mkdtempSync(path.join(tmpdir(), 'odt-agents-'));
+  try {
+    writeFileSync(path.join(dir, 'AGENTS.md'), '# My Project\n\nOriginal content.\n');
+    appendObsidianSection(dir, 'OBSIDIAN');
+    const content = read(path.join(dir, 'AGENTS.md'));
+    assert.match(content, /# My Project/);
+    assert.match(content, /Original content\./);
+    assert.match(content, /OBSIDIAN/);
+    assert.ok(content.indexOf('Original content') < content.indexOf('OBSIDIAN'));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('agents-md: re-appending replaces section, not duplicates', async () => {
+  const { appendObsidianSection } = await import('../lib/agents-md.js');
+  const dir = mkdtempSync(path.join(tmpdir(), 'odt-agents-'));
+  try {
+    appendObsidianSection(dir, 'first');
+    appendObsidianSection(dir, 'second');
+    const content = read(path.join(dir, 'AGENTS.md'));
+    assert.equal((content.match(/<!-- obsidian-docs:start -->/g) || []).length, 1);
+    assert.match(content, /second/);
+    assert.doesNotMatch(content, /first/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 // ── CLI integration tests ───────────────────────────────────────
 
 test('install: creates full vault structure', () => {
@@ -116,6 +158,7 @@ test('install: creates full vault structure', () => {
     assert.equal(status, 0);
     for (const p of [
       'CLAUDE.md',
+      'AGENTS.md',
       '.claude/skills/obsidian-docs/SKILL.md',
       'docs/_INDEX.md',
       'docs/modules',
@@ -127,6 +170,7 @@ test('install: creates full vault structure', () => {
       assert.ok(existsSync(path.join(dir, p)), `expected ${p} to exist`);
     }
     assert.match(read(path.join(dir, 'CLAUDE.md')), /Express/);
+    assert.match(read(path.join(dir, 'AGENTS.md')), /Express/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -170,6 +214,10 @@ test('uninstall --keep-vault: removes skill + section, keeps docs/', () => {
     const c = read(path.join(dir, 'CLAUDE.md'));
     assert.match(c, /# Mine/);
     assert.doesNotMatch(c, /obsidian-docs:start/);
+    // AGENTS.md section should also be removed (file may be deleted if empty)
+    if (existsSync(path.join(dir, 'AGENTS.md'))) {
+      assert.doesNotMatch(read(path.join(dir, 'AGENTS.md')), /obsidian-docs:start/);
+    }
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

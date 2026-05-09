@@ -19,6 +19,7 @@ export async function uninstallCommand(options) {
   const vaultPath = healVault(cwd, { silent: true }) || readConfig(cwd)?.vaultPath || 'docs';
 
   const claudeMd = path.join(cwd, 'CLAUDE.md');
+  const agentsMd = path.join(cwd, 'AGENTS.md');
   const localSkillDir = path.join(cwd, '.claude/skills/obsidian-docs');
   const globalSkillDir = path.join(process.env.HOME, '.claude/skills/obsidian-docs');
   const vaultDir = path.join(cwd, vaultPath);
@@ -26,6 +27,7 @@ export async function uninstallCommand(options) {
 
   const targets = {
     claudeSection: fs.existsSync(claudeMd) && fs.readFileSync(claudeMd, 'utf8').includes(MARKER_START),
+    agentsSection: fs.existsSync(agentsMd) && fs.readFileSync(agentsMd, 'utf8').includes(MARKER_START),
     config: fs.existsSync(configFile),
     localSkill: fs.existsSync(localSkillDir),
     globalSkill: options.global && fs.existsSync(globalSkillDir),
@@ -34,6 +36,7 @@ export async function uninstallCommand(options) {
 
   console.log('  Will remove:');
   if (targets.claudeSection) console.log(`    ${chalk.yellow('•')} obsidian-docs section in ${chalk.cyan('CLAUDE.md')}`);
+  if (targets.agentsSection) console.log(`    ${chalk.yellow('•')} obsidian-docs section in ${chalk.cyan('AGENTS.md')}`);
   if (targets.config)        console.log(`    ${chalk.yellow('•')} ${chalk.cyan('.obsidian-docs.json')}`);
   if (targets.localSkill)    console.log(`    ${chalk.yellow('•')} ${chalk.cyan('.claude/skills/obsidian-docs/')}`);
   if (targets.globalSkill)   console.log(`    ${chalk.yellow('•')} ${chalk.cyan(globalSkillDir)}`);
@@ -83,6 +86,22 @@ export async function uninstallCommand(options) {
     } else {
       fs.writeFileSync(claudeMd, cleaned);
       spinner.succeed('Cleaned CLAUDE.md');
+    }
+  }
+
+  if (targets.agentsSection) {
+    spinner.start('Removing obsidian-docs section from AGENTS.md...');
+    const current = fs.readFileSync(agentsMd, 'utf8');
+    const cleaned = current
+      .replace(new RegExp(`\\n*${MARKER_START}[\\s\\S]*?${MARKER_END}\\n*`), '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trimEnd() + '\n';
+    if (cleaned.trim() === '') {
+      fs.unlinkSync(agentsMd);
+      spinner.succeed('AGENTS.md was empty after removal — deleted');
+    } else {
+      fs.writeFileSync(agentsMd, cleaned);
+      spinner.succeed('Cleaned AGENTS.md');
     }
   }
 
